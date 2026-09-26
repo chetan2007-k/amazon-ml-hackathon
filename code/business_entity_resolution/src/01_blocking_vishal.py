@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 import os
 
 def clean_name(text):
@@ -13,9 +12,8 @@ def clean_name(text):
     return text.strip()
 
 def tfidf_blocking(s1, s2, s3, threshold=0.3):
-    print("Starting TF-IDF Blocking...")
+    print("Starting TF-IDF Sparse Blocking...")
     
-    # Clean names
     s1['clean_name'] = s1['business_name'].apply(clean_name)
     s23 = pd.concat([s2, s3], ignore_index=True)
     s23['clean_name'] = s23['business_name'].apply(clean_name)
@@ -38,18 +36,27 @@ def tfidf_blocking(s1, s2, s3, threshold=0.3):
         tf_s1 = vectorizer.transform(s1_c['clean_name'])
         tf_s23 = vectorizer.transform(s23_c['clean_name'])
         
-        chunk_size = 1000
-        for i in range(0, tf_s1.shape[0], chunk_size):
-            sim_matrix = cosine_similarity(tf_s1[i:i+chunk_size], tf_s23)
-            s1_idx, s23_idx = np.where(sim_matrix > threshold)
-            
-            if len(s1_idx) > 0:
-                chunk_candidates = pd.DataFrame({
-                    'source1_entity_id': s1_c.loc[i + s1_idx, 'entity_id'].values,
-                    'candidate_entity_id': s23_c.loc[s23_idx, 'entity_id'].values,
-                    'similarity_score': sim_matrix[s1_idx, s23_idx]
-                })
-                candidates_list.append(chunk_candidates)
+        # --- THE RAM FIX (Sparse Dot Product) ---
+        # Instead of dense matrices, we use native sparse matrix multiplication
+        # This keeps the memory footprint tiny (megabytes instead of gigabytes!)
+        sparse_sim = tf_s1.dot(tf_s23.T)
+        
+        # Convert to COOrdinate format to extract indices and values instantly
+        coo = sparse_sim.tocoo()
+        
+        # Filter matches above our threshold
+        mask = coo.data > threshold
+        s1_idx = coo.row[mask]
+        s23_idx = coo.col[mask]
+        scores = coo.data[mask]
+        
+        if len(s1_idx) > 0:
+            chunk_candidates = pd.DataFrame({
+                'source1_entity_id': s1_c.loc[s1_idx, 'entity_id'].values,
+                'candidate_entity_id': s23_c.loc[s23_idx, 'entity_id'].values,
+                'similarity_score': scores
+            })
+            candidates_list.append(chunk_candidates)
                 
     all_candidates = pd.concat(candidates_list, ignore_index=True)
     all_candidates = all_candidates.sort_values(by=['source1_entity_id', 'similarity_score'], ascending=[True, False])
@@ -59,13 +66,11 @@ def tfidf_blocking(s1, s2, s3, threshold=0.3):
 
 if __name__ == "__main__":
     print("Loading datasets...")
-    # NOTE FOR VISHAL: Make sure these paths point to where dataset/ is stored!
-    s1 = pd.read_csv("../../dataset/train/train_source1.tsv", sep="\t")
-    s2 = pd.read_csv("../../dataset/train/train_source2.tsv", sep="\t")
-    s3 = pd.read_csv("../../dataset/train/train_source3.tsv", sep="\t")
+    s1 = pd.read_csv("student_resource/dataset/train/train_source1.tsv", sep="\t")
+    s2 = pd.read_csv("student_resource/dataset/train/train_source2.tsv", sep="\t")
+    s3 = pd.read_csv("student_resource/dataset/train/train_source3.tsv", sep="\t")
     
     train_candidates = tfidf_blocking(s1, s2, s3, threshold=0.3)
     
-    # Save to parquet
     train_candidates.to_parquet("train_candidates.parquet", index=False)
-    print("Saved to train_candidates.parquet. Hand this file over to Aravint and Navadeep!")
+    print("Saved to train_candidates.parquet.")

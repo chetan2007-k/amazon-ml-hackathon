@@ -19,9 +19,9 @@ if __name__ == "__main__":
     print("Loading Candidates and Raw Data...")
     candidates = pd.read_parquet("train_candidates.parquet")
     
-    s1 = pd.read_csv("../../dataset/train/train_source1.tsv", sep="\t")
-    s2 = pd.read_csv("../../dataset/train/train_source2.tsv", sep="\t")
-    s3 = pd.read_csv("../../dataset/train/train_source3.tsv", sep="\t")
+    s1 = pd.read_csv("student_resource/dataset/train/train_source1.tsv", sep="\t")
+    s2 = pd.read_csv("student_resource/dataset/train/train_source2.tsv", sep="\t")
+    s3 = pd.read_csv("student_resource/dataset/train/train_source3.tsv", sep="\t")
     s23 = pd.concat([s2, s3], ignore_index=True)
     
     print("Merging Text Data...")

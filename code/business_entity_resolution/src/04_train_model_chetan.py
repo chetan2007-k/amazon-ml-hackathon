@@ -19,7 +19,7 @@ if __name__ == "__main__":
     df = str_feats.merge(sem_feats, on=['source1_entity_id', 'candidate_entity_id'])
     
     print("2. Loading Ground Truth and creating labels...")
-    gt = pd.read_csv("../../dataset/train/train_ground_truth.tsv", sep="\t")
+    gt = pd.read_csv("student_resource/dataset/train/train_ground_truth.tsv", sep="\t")
     
     # Convert Ground Truth to a fast lookup set of (S1, S23) pairs
     gt_pairs = set()
@@ -90,8 +90,8 @@ if __name__ == "__main__":
     all_val_s1 = pd.DataFrame({'source1_entity_id': val_df['source1_entity_id'].unique()})
     match_final = all_val_s1.merge(match_out, on='source1_entity_id', how='left').fillna("")
     
-    os.makedirs("../../output", exist_ok=True)
-    match_final.to_csv("../../output/matching_results.tsv", sep="\t", index=False)
+    os.makedirs("output", exist_ok=True)
+    match_final.to_csv("output/matching_results.tsv", sep="\t", index=False)
     
     # Format candidate_pairs.tsv (just what Vishal produced, aggregated)
     cand_out = val_df.groupby('source1_entity_id')['candidate_entity_id'].apply(list).reset_index()
@@ -99,7 +99,7 @@ if __name__ == "__main__":
     cand_out['candidate_entity_ids'] = cand_out['candidate_entity_ids'].apply(lambda x: ",".join(x))
     cand_final = all_val_s1.merge(cand_out, on='source1_entity_id', how='left').fillna("")
     
-    cand_final.to_csv("../../output/candidate_pairs.tsv", sep="\t", index=False)
+    cand_final.to_csv("output/candidate_pairs.tsv", sep="\t", index=False)
     
     print("Done! Files generated in the output/ folder.")
     print("You are ready to rule the leaderboard!")
